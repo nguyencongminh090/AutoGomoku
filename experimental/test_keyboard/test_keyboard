@@ -1,0 +1,67 @@
+from threading import Thread, Lock
+import keyboard
+import time
+
+class Listener:
+    def __init__(self):
+        self.__listKey = []
+        self.__hotkey = {}
+        self.__validKey = {}
+        self.__lock = Lock()
+        
+        self.__thread = Thread(target=self.start)
+        self.__thread.daemon = True
+        self.__thread.start()
+
+    def __getKeySCNCode(self, key):
+        try:
+            scan_codes = keyboard.key_to_scan_codes(key)
+            if len(scan_codes) > 1:
+                print(f"Warning: Multiple scan codes for key '{key}', using smallest: {scan_codes}")
+            return min(scan_codes)
+        except ValueError:
+            return None
+
+    def __hashHotkey(self, listKey):
+        out = 0
+        for key in listKey:
+            if key in self.__validKey:
+                out |= 1 << self.__validKey[key]
+        return hex(out)
+
+    def start(self):
+        while True:
+            try:
+                key = keyboard.read_event()
+                if not key.name:
+                    continue
+                keyName = self.__getKeySCNCode(key.name.lower())
+                with self.__lock:
+                    if keyName in self.__validKey and key.event_type == 'down':
+                        if keyName not in self.__listKey:
+                            self.__listKey.append(keyName)
+                            _hashHK = self.__hashHotkey(self.__listKey)
+                            if _hashHK in self.__hotkey:
+                                self.__hotkey[_hashHK]()
+                    elif key.event_type == 'up' and keyName in self.__listKey:
+                        self.__listKey.remove(keyName)  # Only remove released keys
+                    # Don't clear listKey on non-valid keys to allow partial combos
+            except Exception as e:
+                print(f"Keyboard event error: {e}")
+                time.sleep(0.01)  # Prevent tight loop on failure
+
+    def addHotKey(self, hotkey: str, func):
+        keys = hotkey.split('+')
+        scan_codes = []
+        with self.__lock:
+            for _hotkey in keys:
+                key = self.__getKeySCNCode(_hotkey.lower())
+                if key is None:
+                    raise ValueError(f"Invalid key: {_hotkey}")
+                if key not in self.__validKey:
+                    self.__validKey[key] = max(self.__validKey.values()) + 1 if self.__validKey.values() else 0
+                scan_codes.append(key)
+            hotkey_hash = self.__hashHotkey(scan_codes)
+            if hotkey_hash in self.__hotkey:
+                print(f"Warning: Overwriting existing hotkey combination: {hotkey}")
+            self.__hotkey[hotkey_hash] = func
