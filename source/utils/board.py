@@ -129,7 +129,7 @@ class Board:
         except Exception as e:
             raise RuntimeError(f"Failed to simulate click at ({x}, {y}): {e}")
 
-    def __move_to_coord(self, x: int, y: int) -> Tuple[int, int]:
+    def move_to_coord(self, x: int, y: int) -> Tuple[int, int]:
         """
         Convert grid coordinates to screen coordinates.
 
@@ -141,7 +141,7 @@ class Board:
             Tuple of (screen_x, screen_y) coordinates.
         """
         screen_x    = self.__x1 + round(x * self.__dis_x)
-        screen_y    = self.__y1 + round(y * self.__dis_y)
+        screen_y    = self.__y1 + round((14 - y) * self.__dis_y)
         return screen_x, screen_y
 
     def set_pos(self, move_string: str) -> None:
@@ -153,4 +153,4 @@ class Board:
         """
         moves = get(move_string, self.__size_x, self.__size_y)
         for move in moves:
-            self.click(*self.__move_to_coord(*move))
+            self.click(*self.move_to_coord(*move))

@@ -1,7 +1,11 @@
 import cv2
 import numpy as np
 from typing import Tuple, Optional
+from PIL import Image
 from utils  import group_overlapping_contours
+from utils  import screenshot_region
+from utils  import ArrangedArr
+import os
 
 
 def detect_board(
@@ -71,3 +75,35 @@ def detect_board(
             cur_info = (x1 + left, y1 + top, w, h)
 
     return cur_info
+
+
+def detect_opening(left: int, top: int, width: int, height: int, distance: int):
+    # Step 1: Load color configuration
+    assert os.path.exists('color.cfg')
+    with open('color.cfg', 'r') as f:
+        lines  = f.read().split('\n')
+        colors = []   # 0: Black; 1: White; 2: Spot; 3: Spot 2
+        for i in range(2):
+            colors.append(tuple(map(int, lines[i].split())))
+    # Step 2: Screenshot board
+    image = screenshot_region(left, top, height, width)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    image = Image.fromarray(image)
+    
+    # Step 3: Scan board
+    deviation  = 0.2
+    list_coord = ArrangedArr()
+    for y in range(15):
+        for x in range(15):
+            coord        = (x, 14 - y)            
+            deviation_x  = deviation if x == 14 else -deviation
+            deviation_y  = deviation if y == 14 else -deviation
+            actual_coord = (int(round((x - deviation_x) * distance)), 
+                            int(round((y - deviation_y) * distance)))
+            r, g, b      = image.getpixel((actual_coord[0], actual_coord[1]))
+            if (r, g, b) == colors[0]:
+                list_coord.add(coord, 'b')
+            elif (r, g, b) == colors[1]:
+                list_coord.add(coord, 'w')
+    return list_coord.get()
+            

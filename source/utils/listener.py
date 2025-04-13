@@ -12,6 +12,16 @@ HashKey       = str
 CallbackFunc  = Callable[[], None]
 
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler("hotkey_app.log")
+    ]
+)
+
+
 class HotkeyError(Exception):
     """Raised when hotkey registration or removal fails."""
     pass
