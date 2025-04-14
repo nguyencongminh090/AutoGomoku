@@ -52,12 +52,12 @@ class UnionFind:
 
 
 def group_overlapping_contours(
-    contours: List,
-    distanceThreshold: float = 10.0,
-    areaSize: float = 300.0,
-    useConvexHull: bool = False,
-    useMasks: bool = False,
-    imageShape: Optional[Tuple[int, int]] = None
+    contours         : List,
+    distanceThreshold: float                     = 10.0,
+    areaSize         : float                     = 300.0,
+    useConvexHull    : bool                      = False,
+    useMasks         : bool                      = False,
+    imageShape       : Optional[Tuple[int, int]] = None
 ) -> List:
     """
     Group overlapping or nearby contours efficiently.

@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 from typing import Tuple, Optional
-from PIL import Image
+from PIL    import Image
 from utils  import group_overlapping_contours
 from utils  import screenshot_region
 from utils  import ArrangedArr
