@@ -2,28 +2,28 @@
 
 from .types     import PlayResult, Evaluate, Mate, Move, TimeOut
 from .io_helper import StdoutReader
-from .gomocup   import GomocupProtocol, GomocupProtocolHandler
+from .protocol  import IProtocol, IProtocolHandler, ProtocolFactory, ProtocolHandler
 from .engine    import Engine
-from .protocol  import (
-    IProtocol,
-    IProtocolHandler,
-    ProtocolFactory,
-    ProtocolHandler,
-)
+from .gomocup   import GomocupProtocol, GomocupProtocolHandler
 
 
 __all__ = [
+    # Các lớp lõi mà người dùng chắc chắn cần
     "Engine",
-    "StdoutReader",
+    "ProtocolFactory",
+        
     "IProtocol",
     "IProtocolHandler",
-    "ProtocolFactory",
-    "ProtocolHandler",
-    "TimeOut",
+
     "Move",
+    "TimeOut",
     "Mate",
     "Evaluate",
     "PlayResult",
+
+    "StdoutReader",
+
     "GomocupProtocol",
     "GomocupProtocolHandler",
+    "ProtocolHandler",
 ]

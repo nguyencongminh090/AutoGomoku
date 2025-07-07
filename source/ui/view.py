@@ -35,8 +35,8 @@ class View(ttk.Window):
         self.__view_model.switch_button.subscribe(self.__switch_var)
 
         # Label
-        self.__label_1 = ttk.Label(self, text="Time:")
-        self.__label_2 = ttk.Label(self, text="Time plus:")
+        self.__label_1 = ttk.Label(self, text="Time (s):")
+        self.__label_2 = ttk.Label(self, text="Time plus (s):")
         self.__label_3 = ttk.Label(self, text="Engine:")
 
         self.__label_1.grid(column=0, row=0, padx=5, pady=(5, 2.5), sticky=W)
@@ -71,7 +71,8 @@ class View(ttk.Window):
 
         # Configure
         self.__setting_button.configure(command=self.__setting_frame.deiconify)
-        self.__detect_board.configure(command=self.__view_model.detect_board)
+        self.__detect_board.configure(command=lambda: self.__view_model.detect_board(self))
+        self.__set_engine_button.configure(command=self.__view_model.select_engine)
 
     def __safe_exit(self):
         # Find and terminate engine if exist

@@ -1,5 +1,6 @@
-from utils        import DataBinding
-from .model       import Model
+from tkinter.filedialog import askopenfilename
+from utils              import DataBinding
+from .model             import Model
 
 class ViewModel:
     def __init__(self, model: Model):
@@ -12,5 +13,10 @@ class ViewModel:
     def safe_kill_engine(self):
         self.__model.terminate_engine()
 
-    def detect_board(self):
-        self.__model.detect_board()
+    def detect_board(self, master):
+        self.__model.detect_board(master)
+
+    def select_engine(self):
+        fn = askopenfilename(filetypes=[("Executable Files", "*.exe")], title="Select Engine")
+        if fn != '':
+            self.engine_entry.set(fn)
