@@ -1,11 +1,12 @@
 import cv2
-import numpy as np
-from typing import Tuple, Optional
-from PIL    import Image
-from utils  import group_overlapping_contours
-from utils  import screenshot_region
-from utils  import ArrangedArr
 import os
+import numpy as np
+from typing    import Tuple, Optional
+from PIL       import Image
+from .contours import group_overlapping_contours
+from .helper   import screenshot_region
+from .helper   import ArrangedArr
+
 
 
 def detect_board(

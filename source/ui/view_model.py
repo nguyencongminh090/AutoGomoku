@@ -1,12 +1,10 @@
-from typing       import Tuple, Callable
-from ui           import Model
-from ttkbootstrap import IntVar
-
+from utils        import DataBinding
+from .model       import Model
 
 class ViewModel:
     def __init__(self, model: Model):
-        self.__model    = model
-        self.time_entry = IntVar(value=60)
-
-    def bind(self, **args):
-        ...
+        self.__model       = model
+        self.time_entry    = DataBinding(60)
+        self.timeP_entry   = DataBinding(0)
+        self.engine_entry  = DataBinding('No Engine')
+        self.switch_button = DataBinding(True)
