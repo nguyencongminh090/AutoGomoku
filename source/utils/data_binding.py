@@ -3,8 +3,9 @@ from tkinter      import TclError
 
 
 class DataBinding:
-    def __init__(self, initial_value=None):
+    def __init__(self, initial_value=None, model_var=None):
         self.__value              = initial_value
+        self.__model_var          = model_var
         self.__variable: Variable = None
 
     def subscribe(self, variable: Variable):
@@ -17,6 +18,7 @@ class DataBinding:
         try:
             if self.__variable and (value := self.__variable.get()) != self.__value and value != '':
                 self.__value = value
+                self.__model_var(value)
         except (TclError, ValueError):
             return
 

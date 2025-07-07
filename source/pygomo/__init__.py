@@ -1,16 +1,16 @@
 """Pygomo: A Python module for interacting with Gomoku engines."""
 
-from .engine import Engine, StdoutReader
-from .gomocup import PlayResult, Mate, Evaluate
-from .protocol import (
+from .types     import PlayResult, Evaluate, Mate, Move, TimeOut
+from .io_helper import StdoutReader
+from .gomocup   import GomocupProtocol, GomocupProtocolHandler
+from .engine    import Engine
+from .protocol  import (
     IProtocol,
     IProtocolHandler,
     ProtocolFactory,
     ProtocolHandler,
-    Move,
-    TimeOut
 )
-from .gomocup import GomocupProtocol, GomocupProtocolHandler
+
 
 __all__ = [
     "Engine",

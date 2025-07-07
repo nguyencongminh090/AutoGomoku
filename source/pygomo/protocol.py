@@ -1,11 +1,9 @@
 """Abstract protocol interfaces and utilities for Gomoku engines."""
 
-from abc    import ABC, abstractmethod
-from queue  import Queue
-from typing import Callable, Tuple, Union, Dict
-from io     import TextIO
-from pygomo import PlayResult
-from pygomo import StdoutReader
+from abc        import ABC, abstractmethod
+from typing     import Callable, Dict, TextIO
+from .types     import PlayResult
+from .io_helper import StdoutReader
 
 
 class IProtocol(ABC):
@@ -101,63 +99,3 @@ class ProtocolHandler:
         if protocol_type == "gomocup":
             return GomocupProtocolHandler(stream)
         raise ValueError(f"Unsupported protocol: {protocol_type}")
-
-
-class Move:
-    """Represents a Gomoku move with multiple format support."""
-
-    def __init__(self, move: Union[Tuple[int, int], str]):
-        """Initialize a move from various formats.
-
-        Args:
-            move: Move in format (col, row), 'x,y', or 'a1'.
-
-        Raises:
-            ValueError: If the move format is invalid.
-        """
-        match move:
-            case str() if "," in move:
-                move = move.replace(" ", "")
-                try:
-                    self.col, self.row = map(int, move.split(","))
-                except ValueError:
-                    raise ValueError(f"Invalid move format: {move}")
-            case str():
-                move = move.replace(" ", "")
-                if not move or len(move) < 2:
-                    raise ValueError(f"Invalid move format: {move}")
-                col_letter = move[0].lower()
-                if not col_letter.isalpha():
-                    raise ValueError(f"Invalid column in move: {move}")
-                try:
-                    self.row = int(move[1:]) - 1
-                except ValueError:
-                    raise ValueError(f"Invalid row in move: {move}")
-                self.col = ord(col_letter) - 97
-            case tuple() if len(move) == 2:
-                self.col, self.row = move
-            case _:
-                raise ValueError(f"Invalid move format: {move}")
-
-    def to_num(self) -> Tuple[int, int]:
-        """Return move as (col, row)."""
-        return self.col, self.row
-
-    def to_alphabet(self) -> str:
-        """Return move in algebraic notation (e.g., 'a1')."""
-        return f"{chr(97 + self.col)}{self.row + 1}"
-
-    def to_strnum(self) -> str:
-        """Return move as string 'col,row'."""
-        return f"{self.col},{self.row}"
-
-    def __str__(self) -> str:
-        return self.to_alphabet()
-
-    def __repr__(self) -> str:
-        return f"<Move {self.to_alphabet()}>"
-
-
-class TimeOut(Exception):
-    """Exception raised when an engine operation times out."""
-    pass

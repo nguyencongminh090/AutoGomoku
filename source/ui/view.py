@@ -71,7 +71,9 @@ class View(ttk.Window):
 
         # Configure
         self.__setting_button.configure(command=self.__setting_frame.deiconify)
+        self.__detect_board.configure(command=self.__view_model.detect_board)
 
     def __safe_exit(self):
         # Find and terminate engine if exist
         self.destroy()
+        self.__view_model.safe_kill_engine()
