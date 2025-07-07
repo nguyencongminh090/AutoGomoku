@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "C:\Python\Python311\Lib\tkinter\__init__.py", line 1948, in __call__
+    return self.func(*args)
+           ^^^^^^^^^^^^^^^^
+  File "d:\Python\Gomobot\v4.0\experimental\test_stringvar\main.py", line 19, in cause_error
+    result = 1 / 0
+            ~~^~~
+ZeroDivisionError: division by zero
+
+---

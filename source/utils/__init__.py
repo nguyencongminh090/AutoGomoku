@@ -4,6 +4,7 @@ from .screen_capture  import ScreenCapture
 from .helper          import CustomArr, ArrangedArr, img_crop, screenshot, screenshot_region
 from .board           import Board
 from .detect          import detect_board, detect_opening
+from .data_binding    import DataBinding
 
 __all__ = [
     'Listener',
@@ -17,5 +18,6 @@ __all__ = [
     'detect_opening',
     'img_crop',
     'screenshot',
-    'screenshot_region'
+    'screenshot_region',
+    'DataBinding'
 ]

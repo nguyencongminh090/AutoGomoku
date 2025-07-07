@@ -115,9 +115,9 @@ class Engine:
         try:
             self._engine = subprocess.Popen(
                 path,
-                stdin  =subprocess.PIPE,
-                stdout =subprocess.PIPE,
-                bufsize=1,
+                stdin    =subprocess.PIPE,
+                stdout   =subprocess.PIPE,
+                bufsize  =1,
                 universal_newlines=True,
             )
         except FileNotFoundError:
