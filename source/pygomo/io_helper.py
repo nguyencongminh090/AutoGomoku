@@ -1,11 +1,6 @@
 from queue     import Queue, Empty
-<<<<<<< Updated upstream
-from threading import Thread
-from typing    import TextIO, Callable
-=======
 from threading import Thread, Lock, Event
 from typing    import TextIO, Callable, Dict
->>>>>>> Stashed changes
 
 
 class StdoutReader:
@@ -16,15 +11,6 @@ class StdoutReader:
     """
 
     def __init__(self, stream: TextIO):
-<<<<<<< Updated upstream
-        self._stream        = stream
-        self._queues        = {}
-        self._filters       = {}
-        self._thread        = Thread(target=self._populate_queue)
-        self._thread.daemon = True
-        self._thread.start()
-
-=======
         self._stream: StdoutReader     = stream
         self._queues: Dict[str, Queue] = {}
         self._filters                  = {}
@@ -37,7 +23,6 @@ class StdoutReader:
         self._stop_event.set()
         self._thread.join(timeout=1.0)
 
->>>>>>> Stashed changes
     def add_category(self, category: str, filter_func: Callable[[str], bool]) -> None:
         """Add a category with a filter function for output lines.
 
@@ -55,11 +40,7 @@ class StdoutReader:
 
     def _populate_queue(self) -> None:
         """Read lines from the stream and distribute to category queues."""
-<<<<<<< Updated upstream
-        while True:
-=======
         while not self._stop_event.is_set():
->>>>>>> Stashed changes
             line = self._stream.readline()
             if line == "":  # EOF
                 break
@@ -71,11 +52,7 @@ class StdoutReader:
             for category, filter_func in self._filters.items():
                 if filter_func(line):
                     try:
-<<<<<<< Updated upstream
-                        self._queues[category].put_nowait(line)
-=======
                         self._queues[category].put(line)
->>>>>>> Stashed changes
                     except Exception:
                         break
                     break
@@ -104,20 +81,6 @@ class StdoutReader:
         queue = self._queues[category]
 
         if reset:
-<<<<<<< Updated upstream
-            self._reset_queue(queue)
-
-        try:
-            return queue.get(block=True, timeout=timeout)
-        except Empty:
-            return ""
-
-    @staticmethod
-    def _reset_queue(queue: Queue) -> None:
-        """Keep only the most recent item in the queue."""
-        while queue.qsize() > 1:
-            queue.get_nowait()
-=======
             items = []
             while not queue.empty():
                 try:
@@ -135,4 +98,3 @@ class StdoutReader:
         
     def __del__(self):
         self.stop()
->>>>>>> Stashed changes

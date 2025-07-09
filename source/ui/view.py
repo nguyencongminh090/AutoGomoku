@@ -76,10 +76,7 @@ class View(ttk.Window):
         self.__setting_button.configure(command=self.__setting_frame.deiconify)
         self.__detect_board.configure(command=lambda: self.__view_model.detect_board(self))
         self.__set_engine_button.configure(command=self.__view_model.select_engine)
-<<<<<<< Updated upstream
-=======
         self.__start_button.configure(command=self.__view_model.turn_on)
->>>>>>> Stashed changes
 
     def __safe_exit(self):
         # Find and terminate engine if exist

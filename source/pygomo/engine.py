@@ -1,11 +1,7 @@
 """Engine management for Gomoku engines."""
 
 import subprocess
-<<<<<<< Updated upstream
-from .protocol  import ProtocolFactory
-=======
 from .protocol  import ProtocolFactory, ProtocolHandler
->>>>>>> Stashed changes
 from .io_helper import StdoutReader
 
 

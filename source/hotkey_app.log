@@ -49,8 +49,6 @@
 2025-07-07 21:32:21,120 - INFO - Registered hotkey 'ctrl+g' (hash=0x11)
 2025-07-07 21:32:21,120 - INFO - Registered hotkey 'ctrl+c' (hash=0x21)
 2025-07-07 21:32:23,439 - INFO - Hotkey triggered: hash=0x21
-<<<<<<< Updated upstream
-=======
 2025-07-08 13:18:40,176 - INFO - Registered hotkey 'alt+s' (hash=0x3)
 2025-07-08 13:18:40,178 - INFO - Registered hotkey 'esc' (hash=0x4)
 2025-07-08 13:18:40,180 - INFO - Registered hotkey 'ctrl+shift+x' (hash=0x38)
@@ -349,4 +347,3 @@
 2025-07-09 01:59:24,776 - INFO - Hotkey triggered: hash=0x38
 2025-07-09 01:59:25,991 - INFO - Hotkey triggered: hash=0x4
 2025-07-09 01:59:27,087 - INFO - Hotkey triggered: hash=0x4
->>>>>>> Stashed changes
