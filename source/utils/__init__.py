@@ -5,6 +5,7 @@ from .helper          import CustomArr, ArrangedArr, img_crop, screenshot, scree
 from .board           import Board
 from .detect          import detect_board, detect_opening
 from .data_binding    import DataBinding
+from .proc            import check_state, kill_process
 
 __all__ = [
     'Listener',
@@ -19,5 +20,7 @@ __all__ = [
     'img_crop',
     'screenshot',
     'screenshot_region',
-    'DataBinding'
+    'DataBinding',
+    'check_state',
+    'kill_process'
 ]

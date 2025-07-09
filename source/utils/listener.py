@@ -12,14 +12,14 @@ HashKey       = str
 CallbackFunc  = Callable[[], None]
 
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler("hotkey_app.log")
-    ]
-)
+# logging.basicConfig(
+#     level=logging.INFO,
+#     format="%(asctime)s - %(levelname)s - %(message)s",
+#     handlers=[
+#         logging.StreamHandler(),
+#         logging.FileHandler("hotkey_app.log")
+#     ]
+# )
 
 
 class HotkeyError(Exception):
@@ -129,28 +129,37 @@ class Listener:
         while not self._stop_event.is_set():
             try:
                 event = keyboard.read_event(suppress=False)
+
                 if not event.name or event.event_type not in ('down', 'up'):
                     continue
+
                 scan_code = self._get_scan_code(event.name.lower())
                 with self._lock:
                     is_relevant_key = scan_code in self._key_to_bit_index
+
                     if event.event_type == 'down' and is_relevant_key and scan_code not in self._pressed_keys:
                         self._pressed_keys.add(scan_code)
                         logging.debug(f"Key down: {event.name}, pressed_keys={self._pressed_keys}")
+
                         current_hash  = self._calculate_hash(self._pressed_keys)
                         current_time  = time.time() * 1000
+
                         if current_hash in self._hotkey_map and (current_time - self._last_callback_time) >= self._debounce_ms:
                             callback_to_run = self._hotkey_map[current_hash]
                             logging.info(f"Hotkey triggered: hash={current_hash}")
+
                             try:
                                 self._callback_executor.submit(callback_to_run)
                                 logging.debug(f"Submitted callback for hash={current_hash}")
                                 self._last_callback_time = current_time
                             except RuntimeError:
                                 logging.warning(f"Callback queue full, skipping hotkey: hash={current_hash}")
+
                     elif event.event_type == 'up' and scan_code in self._pressed_keys:
+
                         self._pressed_keys.discard(scan_code)
                         logging.debug(f"Key up: {event.name}, pressed_keys={self._pressed_keys}")
+
             except HotkeyError:
                 continue
             except Exception as e:

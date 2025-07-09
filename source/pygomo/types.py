@@ -55,7 +55,11 @@ class Move:
         return self.to_alphabet()
 
     def __repr__(self) -> str:
+<<<<<<< Updated upstream
         return f"<Move {self.to_alphabet()}>"
+=======
+        return f"{self.to_alphabet()}"
+>>>>>>> Stashed changes
 
 
 class Mate:
@@ -80,7 +84,11 @@ class Mate:
 
     def step(self) -> int:
         """Return the number of moves to mate."""
+<<<<<<< Updated upstream
         return int(self._value[2:])
+=======
+        return int(self._value[0] + self._value[2:])
+>>>>>>> Stashed changes
 
 
 class Evaluate:
@@ -151,7 +159,11 @@ class PlayResult:
         Raises:
             ValueError: If the move is invalid.
         """
+<<<<<<< Updated upstream
         self.move = Move(move)
+=======
+        self.move = Move(move) if move is not None else None
+>>>>>>> Stashed changes
         self.info = self._parse_uci(info)
 
     def _parse_uci(self, info: str) -> Dict:

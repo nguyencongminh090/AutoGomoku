@@ -17,6 +17,7 @@ class View(ttk.Window):
         # Setting TopLevel
         self.__setting_frame = ttk.Toplevel(title='Settings')        
         self.__setting_frame.wm_attributes("-topmost", 1)
+        self.__setting_frame.protocol('WM_DELETE_WINDOW', self.__setting_frame.withdraw)
         self.__setting_frame.geometry()
         self.__setting_frame.resizable(0, 0)
         self.__setting_frame.withdraw()
@@ -60,10 +61,12 @@ class View(ttk.Window):
         self.__setting_button    = ttk.Button(self, text='Setting', bootstyle='success outline')
         self.__set_engine_button = ttk.Button(self.__setting_frame, text='Select Engine')
         self.__detect_board      = ttk.Button(self.__setting_frame, text='Detect Board')
+        self.__start_button      = ttk.Button(self.__setting_frame, text='Turn On')
 
         self.__setting_button.grid(column=0, columnspan=2, row=4, padx=5, pady=(2.5, 5), sticky='we')
         self.__set_engine_button.grid(column=1, row=0, padx=(5, 2.5), pady=5, sticky='we')
-        self.__detect_board.grid(column=2, row=0, padx=(2.5, 5), pady=5, sticky='we')
+        self.__detect_board.grid(column=2, row=0, padx=(2.5, 2.5), pady=5, sticky='we')
+        self.__start_button.grid(column=3, row=0, padx=(2.5, 5), pady=5, sticky='we')
 
         # CheckButton        
         self.__switch = ttk.Checkbutton(self.__setting_frame, bootstyle='round-toggle', text='Auto', variable=self.__switch_var)
@@ -73,6 +76,10 @@ class View(ttk.Window):
         self.__setting_button.configure(command=self.__setting_frame.deiconify)
         self.__detect_board.configure(command=lambda: self.__view_model.detect_board(self))
         self.__set_engine_button.configure(command=self.__view_model.select_engine)
+<<<<<<< Updated upstream
+=======
+        self.__start_button.configure(command=self.__view_model.turn_on)
+>>>>>>> Stashed changes
 
     def __safe_exit(self):
         # Find and terminate engine if exist

@@ -1,7 +1,11 @@
 """Engine management for Gomoku engines."""
 
 import subprocess
+<<<<<<< Updated upstream
 from .protocol  import ProtocolFactory
+=======
+from .protocol  import ProtocolFactory, ProtocolHandler
+>>>>>>> Stashed changes
 from .io_helper import StdoutReader
 
 
@@ -36,7 +40,7 @@ class Engine:
             raise FileNotFoundError(f"Engine executable not found at: {path}")
 
         self.id           = self._engine.pid
-        self._std_reader  = StdoutReader(self._engine.stdout)
+        self._std_reader  = ProtocolHandler.create(protocol_type, self._engine.stdout).get()
         self.protocol     = ProtocolFactory.create(
             protocol_type,
             self._send,
@@ -77,7 +81,3 @@ class Engine:
         # Terminate engine by protocol command
         self.protocol.quit()
         self._engine.wait(timeout=1.0)
-        # If the engine is still running, forcefully terminate it
-        if self._engine.poll() is None:            
-            self._engine.terminate()
-            self._engine.wait(timeout=1.0)

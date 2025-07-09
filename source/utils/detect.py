@@ -11,8 +11,8 @@ from .helper   import ArrangedArr
 
 def detect_board(
     img          : np.ndarray,
-    top          : int  = 0,
     left         : int  = 0,
+    top          : int  = 0,
     rectangle    : bool = False
 ) -> Tuple[Optional[int], Optional[int], Optional[int], Optional[int]]:
     """

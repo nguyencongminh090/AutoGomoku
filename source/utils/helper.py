@@ -12,6 +12,9 @@ class CustomArr:
             self.__data.extend([None] * (index - len(self.__data) + 1))
         self.__data[index] = value
 
+    def __len__(self):
+        return len(self.__data)
+
     def __getitem__(self, index):
         return self.__data[index]
     

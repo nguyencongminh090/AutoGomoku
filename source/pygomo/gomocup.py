@@ -96,7 +96,7 @@ class GomocupProtocol(IProtocol):
             True if the engine responds with 'ok', False otherwise.
         """
         self._sender("start", board_size)
-        return self._reader("output", timeout=timeout) == "ok"
+        return self._reader("output", reset=True, timeout=timeout) == "ok"
 
     def send_command(self, *command: str) -> None:
         """Send a generic command to the engine."""
