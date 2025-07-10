@@ -1,0 +1,9 @@
+keyboard
+mss
+numpy
+opencv_python
+Pillow
+psutil
+pywin32
+scipy
+ttkbootstrap
