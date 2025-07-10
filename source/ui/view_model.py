@@ -9,6 +9,7 @@ class ViewModel:
         self.timeP_entry   = self.__model.time_plus
         self.engine_entry  = self.__model.engine
         self.switch_button = self.__model.mode
+        self.log_text      = self.__model.text_box
 
     def safe_kill_engine(self):
         self.__model.safe_kill_engine()

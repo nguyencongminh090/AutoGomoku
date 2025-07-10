@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import mss
+from ttkbootstrap.scrolled import ScrolledText
 
 
 class CustomArr:
@@ -87,3 +88,29 @@ def screenshot_region(x1, y1, h, w):
     image = screenshot()
     image = image[y1:y1 + h, x1:x1 + w]
     return image
+
+
+def convert_time(milliseconds: float) -> str:
+    # Convert milliseconds -> minute:second(ms)
+    seconds = int(milliseconds // 1000)
+    ms      = int(milliseconds % 1000)
+    minutes = seconds // 60
+    secs    = seconds % 60
+    return f"{minutes}:{secs:02d}({ms})"
+
+
+class LogText:
+    def __init__(self):        
+        self.__log_text_box: ScrolledText = None
+
+    def subscribe(self, text_box: ScrolledText):
+        self.__log_text_box = text_box
+
+    def set(self, *text):
+        assert isinstance(self.__log_text_box, ScrolledText)
+        self.__log_text_box.insert('end', ' '.join(text) + '\n')
+        self.__log_text_box.see('end')
+
+    def clear(self):
+        assert isinstance(self.__log_text_box, ScrolledText)
+        self.__log_text_box.delete('0.0', 'end')

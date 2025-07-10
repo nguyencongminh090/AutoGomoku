@@ -5,7 +5,16 @@ from typing    import Tuple, Optional
 from PIL       import Image
 from .contours import group_overlapping_contours
 from .helper   import screenshot_region
-from .helper   import ArrangedArr
+from .helper   import ArrangedArr, CustomArr
+
+
+# Load color configuration
+assert os.path.exists('color.cfg')
+with open('color.cfg', 'r') as f:
+    lines  = f.read().split('\n')
+    colors = []   # 0: Black; 1: White; 2: Spot; 3: Spot 2
+    for i in range(3):
+        colors.append(tuple(map(int, lines[i].split())))
 
 
 
@@ -78,20 +87,13 @@ def detect_board(
     return cur_info
 
 
-def detect_opening(left: int, top: int, width: int, height: int, distance: int):
-    # Step 1: Load color configuration
-    assert os.path.exists('color.cfg')
-    with open('color.cfg', 'r') as f:
-        lines  = f.read().split('\n')
-        colors = []   # 0: Black; 1: White; 2: Spot; 3: Spot 2
-        for i in range(2):
-            colors.append(tuple(map(int, lines[i].split())))
-    # Step 2: Screenshot board
+def detect_opening(left: int, top: int, width: int, height: int, distance: int) -> CustomArr:    
+    # Step 1: Screenshot board
     image = screenshot_region(left, top, height, width)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     image = Image.fromarray(image)
     
-    # Step 3: Scan board
+    # Step 2: Scan board
     deviation  = 0.2
     list_coord = ArrangedArr()
     for y in range(15):
@@ -108,3 +110,23 @@ def detect_opening(left: int, top: int, width: int, height: int, distance: int):
                 list_coord.add(coord, 'w')
     return list_coord.get()
             
+
+def detect_move(left: int, top: int, width: int, height: int, distance: int) -> Tuple[int, int] | None:
+    image = screenshot_region(left, top, height, width)
+    
+    image = Image.fromarray(image)
+
+    for y in range(15):
+        for x in range(15):
+            coord = (x, 14 - y)
+            cx    = max(int(round(x * distance)) - 1, 0)
+            cy    = max(int(round(y * distance)) - 1, 0)
+            r, g, b = image.getpixel((cx, 
+                                      cy))
+            if coord == (7, 7):
+                print(r,g,b)
+            if (r, g, b) == colors[2]:
+                print(coord)
+                return coord
+    cv2.waitKey(1)
+    return None
