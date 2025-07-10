@@ -90,7 +90,7 @@ source/
 │   ├── gomocup.py      # Gomocup protocol support
 │   ├── protocol.py     # Protocol definitions
 │   └── ...
-├── ui/             # User Interface (MVC pattern)
+├── ui/             # User Interface (MVVM pattern)
 │   ├── model.py        # Data model for UI
 │   ├── view_model.py   # ViewModel for UI logic
 │   ├── view.py         # Main Tkinter window and widgets
@@ -114,7 +114,7 @@ source/
   - Implements move generation and protocol parsing
 
 - **ui/**: User interface implementation
-  - Follows MVC pattern for clean separation of concerns
+  - Follows MVVM pattern for clean separation of concerns
   - Handles user input and visual feedback
   - Manages game state and engine communication
 
