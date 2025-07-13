@@ -163,15 +163,19 @@ class PlayResult:
         Returns:
             Dictionary with parsed info (e.g., depth, evaluation).
         """
+        def parse_number(number):
+            suffixes = {'k': 10**3, 'm': 10**6, 'b': 10**9}
+            return int(number[:-1]) * suffixes.get(number[-1].lower(), 1) if number[-1].lower() in suffixes else int(number)
+        
         pattern = re.compile(
-            r"depth (\d+)-(\d+) ev ([+-]?\w?\d+) n (\d+)(?:\w) (?:\S*) (\d+) tm (\d+)(?:\S*) pv ((?:[a-zA-Z]\d+\s?)*)"
+            r"depth (\d+)-(\d+) ev ([+-]?\w?\d+) n (\d+\S*) (?:\S*) (\d+) tm (\d+)(?:\S*) pv ((?:[a-zA-Z]\d+\s?)*)"
         )
         match = pattern.search(info)
         if match:
             return {
                 "depth": f"{match.group(1)}-{match.group(2)}",
                 "ev"   : Evaluate(match.group(3)),
-                "node" : match.group(4),
+                "node" : parse_number(match.group(4)),
                 "nps"  : match.group(5),
                 "time" : int(match.group(6)),
                 "pv"   : [Move(m) for m in match.group(7).split() if m],

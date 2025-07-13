@@ -1,7 +1,10 @@
 import cv2
 import numpy as np
 import mss
+from .                     import win_check_cpp
+from typing                import List
 from ttkbootstrap.scrolled import ScrolledText
+from pygomo.types          import Move
 
 
 class CustomArr:
@@ -90,6 +93,12 @@ def screenshot_region(x1, y1, h, w):
     return image
 
 
+def display(region: List[int], title='AutoGomoku'):
+    cv2.imshow(title, cv2.cvtColor(screenshot_region(*region), cv2.COLOR_BGR2RGB))
+    cv2.waitKey(5000)
+    cv2.destroyAllWindows()
+
+
 def convert_time(milliseconds: float) -> str:
     # Convert milliseconds -> minute:second(ms)
     seconds = int(milliseconds // 1000)
@@ -114,3 +123,30 @@ class LogText:
     def clear(self):
         assert isinstance(self.__log_text_box, ScrolledText)
         self.__log_text_box.delete('0.0', 'end')
+
+
+class MoveStack:
+    def __init__(self):
+        self.__stack: List[List[int]] = []
+
+    def put(self, move: Move):
+        self.__stack.append(move.to_num())
+
+    def clear(self):
+        self.__stack.clear()
+
+    def __sizeof__(self):
+        return len(self.__stack)
+    
+    def __iter__(self):
+        return iter(self.__stack)
+    
+    def __contains__(self, move: Move | List[int]):
+        move = move.to_num() if isinstance(move, Move) else move
+        return move in self.__stack
+    
+    def __getitem(self, idx: int):
+        return self.__stack[idx]
+
+    def is_win(self):
+        return win_check_cpp.is_win_optimized(self.__stack)

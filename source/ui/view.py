@@ -1,7 +1,27 @@
+import os
+import tomllib
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
 from ttkbootstrap.scrolled  import ScrolledText
 from .view_model            import ViewModel
+
+
+with open('tool_config.toml', 'rb') as f:
+    config = tomllib.load(f)
+
+
+if not config['show_window']:
+    if os.name == 'nt':
+        import ctypes
+        
+        # Get console window handle
+        kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+        user32   = ctypes.WinDLL('user32', use_last_error=True)
+        
+        SW_HIDE  = 0
+        console_window = kernel32.GetConsoleWindow()
+        if console_window:
+            user32.ShowWindow(console_window, SW_HIDE)
 
 
 class View(ttk.Window):

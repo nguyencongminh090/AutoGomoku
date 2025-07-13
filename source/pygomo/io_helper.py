@@ -1,6 +1,11 @@
+import tomllib
 from queue     import Queue, Empty
 from threading import Thread, Lock, Event
 from typing    import TextIO, Callable, Dict
+
+
+with open('tool_config.toml', 'rb') as f:
+    config = tomllib.load(f)
 
 
 class StdoutReader:
@@ -48,6 +53,9 @@ class StdoutReader:
             line = line.strip().lower()
             if not line:
                 continue
+
+            if config['show_log']:
+                print(f'-> {line}')
 
             for category, filter_func in self._filters.items():
                 if filter_func(line):

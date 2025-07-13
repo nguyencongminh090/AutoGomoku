@@ -121,12 +121,8 @@ def detect_move(left: int, top: int, width: int, height: int, distance: int) -> 
             coord = (x, 14 - y)
             cx    = max(int(round(x * distance)) - 1, 0)
             cy    = max(int(round(y * distance)) - 1, 0)
-            r, g, b = image.getpixel((cx, 
-                                      cy))
-            if coord == (7, 7):
-                print(r,g,b)
+            r, g, b = image.getpixel((cx, cy))
             if (r, g, b) == colors[2]:
-                print(coord)
                 return coord
     cv2.waitKey(1)
     return None
