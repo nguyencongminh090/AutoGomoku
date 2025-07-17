@@ -25,11 +25,12 @@ if not config['show_window']:
 
 
 class View(ttk.Window):
-    VERSION = 'v5.0'
+    VERSION = 'v5.2.1'
     def __init__(self, view_model: ViewModel):
         super().__init__()
         self.resizable(True, False)
         self.wm_attributes("-topmost", 1)
+        self.iconbitmap('icon.ico')
         self.protocol("WM_DELETE_WINDOW", self.__safe_exit)
         self.title(f'AutoGomoku {self.VERSION} NguyenMinh')
         self.columnconfigure(1, weight=1)
@@ -44,7 +45,7 @@ class View(ttk.Window):
         self.__setting_frame.withdraw()
 
         # Variable
-        self.__time_var   = ttk.IntVar(self)
+        self.__time_var   = ttk.DoubleVar(self)
         self.__timeP_var  = ttk.IntVar(self)
         self.__engine_var = ttk.StringVar(self)
         self.__switch_var = ttk.BooleanVar(self.__setting_frame)

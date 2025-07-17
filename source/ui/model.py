@@ -44,15 +44,42 @@ class Model:
         self.__board         : Board  = None
         self.__board_position: List[int, int, int, int] = None, None, None, None
 
+        self.__cur_time  = 0.0
         self.__game_lock = threading.Lock()
-        self.__listener  = Listener(max_callback_workers=1, debounce_ms=500)
+        self.__listener  = Listener(max_callback_workers=1, debounce_ms=50)
 
-        self.__listener.add_hotkey('alt+s', self.stop_game)
-        self.__listener.add_hotkey('esc'  , self.turn_off)
+        self.__listener.add_hotkey('alt+s'       , self.stop_game)
+        self.__listener.add_hotkey('esc'         , self.turn_off)
         self.__listener.add_hotkey('ctrl+shift+x', self.start_game_thread)
-        self.__listener.add_hotkey('alt+r', self.text_box.clear)
-        self.__listener.add_hotkey('alt+d', self.__display_search_info)
-        self.__listener.add_hotkey('alt+q', self.__stop_engine_search)
+        self.__listener.add_hotkey('alt+r'       , self.text_box.clear)
+        self.__listener.add_hotkey('alt+d'       , self.__display_search_info)
+        self.__listener.add_hotkey('alt+q'       , self.__stop_engine_search)
+        self.__listener.add_hotkey('alt+='       , self.inc_time)
+        self.__listener.add_hotkey('alt+-'       , self.dec_time)
+        self.__listener.add_hotkey('alt+enter'   , self.sync_time_var)
+
+
+    def inc_time(self):
+        """
+        Increase time_match by one
+        """
+        self.time_match.set(self.time_match.get() + 1)
+        self.set_cur_time()
+
+    def dec_time(self):
+        """
+        Decrease time_match by one
+        """
+        self.time_match.set(self.time_match.get() - 1)
+        self.set_cur_time()
+
+    def sync_time_var(self):
+        "Sync self.__curtime <-> time_match"
+        self.time_match.set(self.__cur_time / 1000)
+
+    def set_cur_time(self):
+        """Set time_match <- self.__cur_time"""
+        self.__cur_time = self.time_match.get() * 1000
 
     def load_engine(self):
         """Load and initialize the Gomoku engine.
@@ -65,7 +92,8 @@ class Model:
             Exception: If engine initialization fails.
         """
 
-        assert os.path.exists(engine := self.engine.get())
+        assert os.path.exists(engine := self.engine.get()), 'Engine path not exist'
+        assert not self.is_engine_available(), 'Engine available, cannot create duplicate engine thread'
         self.__engine_exec = Engine(engine, 'gomocup')
         print(f'Engine PID: {self.__engine_exec.id}')
 
@@ -171,7 +199,9 @@ class Model:
 
         if self.__state:
             self.__state = False
+            self.__stop_engine_search()
             self.text_box.set('Stop Playing')
+            self.set_cur_time()
 
     def start_game_thread(self):
         """Start a new game in a separate thread.
@@ -184,9 +214,9 @@ class Model:
                             board object not initialized.
         """
 
-        assert self.is_engine_available()
-        assert self.__board_position
-        assert self.__board
+        assert self.is_engine_available(), 'Engine is not available.'
+        assert self.__board_position, 'Board detect failed, cannot locate board position.'
+        assert self.__board, 'No board obj found.'
         with self.__game_lock:
             if not self.__state:
                 self.text_box.set("Starting game thread...")
@@ -285,18 +315,17 @@ class Model:
                     continue
             return None
             
-        def recursive_play(begin_time: int, move_stack: MoveStack):
+        def recursive_play(move_stack: MoveStack):
             """
             Recursive playing until terminated.
 
             Args:
-                begin_time (int): Initialize start time
                 move_stack (int): Initialize move stack to mangage moves.
             """
             while self.__state:                
                 # Step 1: Set time_left
                 time_start = time.perf_counter()
-                self.__engine_exec.protocol.configure({'time_left': begin_time})
+                self.__engine_exec.protocol.configure({'time_left': self.__cur_time})
 
                 # Step 2: Get move || Manage by turn
                 if (move := detect_move(*self.__board_position, self.__distance)) is not None and \
@@ -306,21 +335,21 @@ class Model:
                     move_stack.put(move)
                     
                     self.text_box.clear()
-                    self.text_box.set(f'--> Time Left: {convert_time(begin_time)}')
+                    self.text_box.set(f'--> Time Left: {convert_time(self.__cur_time)}')
 
                     self.__engine_exec.protocol.send_command('turn', move.to_strnum())
 
                     # Step 4: Display & click
-                    output   = recursive_get_info(begin_time / 1000)
-
-                    move_stack.put(output)
+                    output   = recursive_get_info(self.__cur_time / 1000)
+                    
                     if output is not None:
+                        move_stack.put(output)
                         click(*self.__board.move_to_coord(*output.to_num()))
 
                     # Step 5: Update time_left
 
-                    time_end   = time.perf_counter()
-                    begin_time = calc_time_left(begin_time / 1000, time_end - time_start)
+                    time_end        = time.perf_counter()
+                    self.__cur_time = calc_time_left(self.__cur_time / 1000, time_end - time_start)
 
                     # Step 6: Check win
                     if move_stack.is_win():
@@ -329,7 +358,7 @@ class Model:
 
         try:            
             self.__state = True
-            move_stack        = MoveStack()
+            move_stack   = MoveStack()
             # Logic
             # -----
             assert self.__engine_exec.protocol.is_ready(timeout=self.time_match.get()), 'Engine is not ready'
@@ -350,15 +379,15 @@ class Model:
             self.__engine_exec.protocol.send_command(f'board\n{moves_str}\ndone')
 
             # Step 3: Represent
-            output     = recursive_get_info(self.time_match.get())
-            move_stack.put(output)
+            output     = recursive_get_info(self.time_match.get())            
             if output is not None:
+                move_stack.put(output)
                 click(*self.__board.move_to_coord(*output.to_num()))
 
             # Step 4: Local update time
-            time_end   = time.perf_counter()
-            time_left  = calc_time_left(self.time_match.get(), time_end - time_start)
+            time_end        = time.perf_counter()
+            self.__cur_time = calc_time_left(self.time_match.get(), time_end - time_start)
             if recursive:
-                recursive_play(time_left, move_stack)
+                recursive_play(move_stack)
         finally:
             self.__state = False

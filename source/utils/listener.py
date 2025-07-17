@@ -1,20 +1,30 @@
-import keyboard
+"""
+A thread-safe, non-blocking, and robust keyboard hotkey listener for Python applications.
+
+This module provides a `Listener` class that can register multiple hotkey combinations
+and execute their corresponding callbacks in a separate thread pool, preventing the
+main application from blocking. It is designed to be resilient, with features like
+per-hotkey debouncing and graceful shutdown.
+"""
 import time
 import logging
 from threading          import Thread, Lock, Event
 from concurrent.futures import ThreadPoolExecutor
-from typing             import Set, Callable
+from typing             import Callable, FrozenSet
+
+import keyboard
+
 
 # Type aliases for clarity
 ScanCode      = int
-BitIndex      = int
-HashKey       = str
+Hotkey        = FrozenSet[ScanCode]
 CallbackFunc  = Callable[[], None]
 
-
+# Configure logging for easier debugging
+# Uncomment if you want to see detailed logs
 # logging.basicConfig(
-#     level=logging.INFO,
-#     format="%(asctime)s - %(levelname)s - %(message)s",
+#     level=logging.DEBUG,
+#     format="%(asctime)s - %(threadName)s - %(levelname)s - %(message)s",
 #     handlers=[
 #         logging.StreamHandler(),
 #         logging.FileHandler("hotkey_app.log")
@@ -24,9 +34,9 @@ CallbackFunc  = Callable[[], None]
 
 class HotkeyError(Exception):
     """Raised when hotkey registration or removal fails."""
-    pass
 
 
+# pylint: disable=too-many-instance-attributes
 class Listener:
     """
     Listens for keyboard hotkey combinations and executes callbacks in a thread-safe manner.
@@ -41,89 +51,58 @@ class Listener:
 
     def __init__(self, max_callback_workers: int = 1, debounce_ms: int = 500):
         """
-        Initialize the hotkey listener.
+        Initializes the hotkey listener.
 
         Args:
             max_callback_workers: Maximum number of threads for callback execution.
-            debounce_ms: Minimum time (ms) between consecutive callback triggers.
-
-        Raises:
-            ValueError: If max_callback_workers or debounce_ms is invalid.
+            debounce_ms: Minimum time (in ms) between consecutive triggers of the SAME hotkey.
         """
         if max_callback_workers < 1:
             raise ValueError("max_callback_workers must be at least 1")
         if debounce_ms < 0:
             raise ValueError("debounce_ms must be non-negative")
 
-        self._pressed_keys          = set()
-        self._hotkey_map            = {}
-        self._key_to_bit_index      = {}
-        self._available_bit_indices = set(range(64))
-        self._lock                  = Lock()
-        self._stop_event            = Event()
-        self._last_callback_time    = 0
-        self._debounce_ms           = debounce_ms
+        self._pressed_scan_codes  = set()
+        self._hotkey_map          = {}
+        self._lock                = Lock()
+        self._stop_event          = Event()
+        self._debounce_ms         = debounce_ms
+        self._last_callback_times = {} # Per-hotkey debounce tracking
 
-        self._callback_executor     = ThreadPoolExecutor(
-            max_workers             = max_callback_workers,
-            thread_name_prefix      = 'HotkeyCallback'
+        self._callback_executor   = ThreadPoolExecutor(
+            max_workers           = max_callback_workers,
+            thread_name_prefix    = 'HotkeyCallback'
         )
-        self._listener_thread       = Thread(target=self._listen_loop, daemon=True)
+        self._listener_thread     = Thread(target=self._listen_loop,
+                                           daemon=True,
+                                           name="HotkeyListener")
         self._listener_thread.start()
-        logging.debug("Hotkey listener thread started")
+        logging.debug("Hotkey listener thread has started")
 
     def __enter__(self):
-        """Enable context manager usage."""
+        """Enables use as a context manager."""
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """Ensure cleanup on context exit."""
+        """Ensures cleanup on context exit."""
         self.stop()
 
     def _get_scan_code(self, key_name: str) -> ScanCode:
-        """
-        Convert a key name to its primary scan code.
-
-        Args:
-            key_name: The key name (e.g., 'ctrl', 'left ctrl').
-
-        Returns:
-            The primary scan code.
-
-        Raises:
-            HotkeyError: If the key name is invalid or has no scan code.
-        """
+        """Converts a key name to its primary scan code."""
         try:
-            scan_codes = keyboard.key_to_scan_codes(key_name)
-            if len(scan_codes) > 1:
-                logging.debug(f"Multiple scan codes for '{key_name}': {scan_codes}, using {scan_codes[0]}")
-            return scan_codes[0]
-        except ValueError as e:
-            raise HotkeyError(f"Invalid key name '{key_name}': {e}")
-        except Exception as e:
-            raise HotkeyError(f"Error resolving scan code for '{key_name}': {e}")
-
-    def _calculate_hash(self, scan_codes: Set[ScanCode]) -> HashKey:
-        """
-        Calculate a hash for a set of scan codes.
-
-        Args:
-            scan_codes: Set of scan codes to hash.
-
-        Returns:
-            A hexadecimal string representing the hash.
-        """
-        current_hash = 0
-        for code in scan_codes:
-            if code in self._key_to_bit_index:
-                current_hash |= (1 << self._key_to_bit_index[code])
-        return hex(current_hash)
+            # keyboard.key_to_scan_codes returns a tuple, we take the first one
+            return keyboard.key_to_scan_codes(key_name)[0]
+        except (ValueError, IndexError) as exc:
+            raise HotkeyError(
+                f"Invalid key name or scan code not found: '{key_name}'"
+            ) from exc
+        except Exception as exc:
+            raise HotkeyError(
+                f"Unknown error getting scan code for '{key_name}'"
+            ) from exc
 
     def _listen_loop(self):
-        """
-        Monitor keyboard events and trigger callbacks for hotkey matches.
-        Uses ThreadPoolExecutor to run callbacks non-blocking.
-        """
+        """Monitors keyboard events and triggers callbacks for hotkey matches."""
         logging.debug("Listener loop started")
 
         while not self._stop_event.is_set():
@@ -134,119 +113,122 @@ class Listener:
                     continue
 
                 scan_code = self._get_scan_code(event.name.lower())
+
                 with self._lock:
-                    is_relevant_key = scan_code in self._key_to_bit_index
+                    if event.event_type == 'down':
+                        self._pressed_scan_codes.add(scan_code)
+                    else: # 'up'
+                        self._pressed_scan_codes.discard(scan_code)
 
-                    if event.event_type == 'down' and is_relevant_key and scan_code not in self._pressed_keys:
-                        self._pressed_keys.add(scan_code)
-                        logging.debug(f"Key down: {event.name}, pressed_keys={self._pressed_keys}")
+                    # Only check for a hotkey match on a 'down' event to avoid multiple triggers
+                    if event.event_type == 'down':
+                        current_hotkey = frozenset(self._pressed_scan_codes)
 
-                        current_hash  = self._calculate_hash(self._pressed_keys)
-                        current_time  = time.time() * 1000
+                        if current_hotkey in self._hotkey_map:
+                            callback_to_run = self._hotkey_map[current_hotkey]
+                            current_time_ms = time.time() * 1000
+                            last_time_ms = self._last_callback_times.get(current_hotkey, 0)
 
-                        if current_hash in self._hotkey_map and (current_time - self._last_callback_time) >= self._debounce_ms:
-                            callback_to_run = self._hotkey_map[current_hash]
-                            logging.info(f"Hotkey triggered: hash={current_hash}")
+                            if (current_time_ms - last_time_ms) >= self._debounce_ms:
+                                logging.info("Hotkey triggered: %s", current_hotkey)
+                                try:
+                                    self._callback_executor.submit(callback_to_run)
+                                    self._last_callback_times[current_hotkey] = current_time_ms
+                                except RuntimeError:
+                                    if not self._stop_event.is_set():
+                                        logging.warning(
+                                            "Callback queue is full, skipping hotkey: %s",
+                                            current_hotkey
+                                        )
 
-                            try:
-                                self._callback_executor.submit(callback_to_run)
-                                logging.debug(f"Submitted callback for hash={current_hash}")
-                                self._last_callback_time = current_time
-                            except RuntimeError:
-                                logging.warning(f"Callback queue full, skipping hotkey: hash={current_hash}")
-
-                    elif event.event_type == 'up' and scan_code in self._pressed_keys:
-
-                        self._pressed_keys.discard(scan_code)
-                        logging.debug(f"Key up: {event.name}, pressed_keys={self._pressed_keys}")
-
-            except HotkeyError:
+            except HotkeyError as exc:
+                # Log errors for invalid keys instead of ignoring them
+                logging.debug("HotkeyError in listen loop (ignoring): %s", exc)
                 continue
-            except Exception as e:
+            except Exception as exc:
                 if not self._stop_event.is_set():
-                    logging.error(f"Listener loop error: {e}")
-                    time.sleep(0.05)
+                    logging.error("Critical error in listener loop: %s", exc, exc_info=True)
+                    time.sleep(0.05) # Prevent a tight error loop
 
         logging.debug("Listener loop stopped")
         self._callback_executor.shutdown(wait=False, cancel_futures=True)
 
     def add_hotkey(self, hotkey_str: str, callback: CallbackFunc) -> None:
         """
-        Register a hotkey combination and its callback.
+        Registers a hotkey combination and its callback.
 
         Args:
-            hotkey_str: Hotkey string (e.g., "ctrl+shift+a").
-            callback: Function to call when the hotkey is pressed.
-
-        Raises:
-            HotkeyError: If the hotkey string is invalid or contains invalid keys.
+            hotkey_str: The hotkey string (e.g., "ctrl+shift+a").
+            callback: The function to call when the hotkey is pressed.
         """
         key_names = [key.strip().lower() for key in hotkey_str.split('+') if key.strip()]
         if not key_names:
             raise HotkeyError("Hotkey string cannot be empty")
-        scan_codes = set()
+
+        try:
+            scan_codes = frozenset(self._get_scan_code(name) for name in key_names)
+        except HotkeyError as exc:
+            # Re-raise with more context
+            raise HotkeyError(f"Could not register hotkey '{hotkey_str}'") from exc
+
         with self._lock:
-            for name in key_names:
-                scan_code = self._get_scan_code(name)
-                scan_codes.add(scan_code)
-                if scan_code not in self._key_to_bit_index:
-                    if not self._available_bit_indices:
-                        raise HotkeyError("Maximum number of unique keys (64) reached")
-                    bit_index = min(self._available_bit_indices)
-                    self._available_bit_indices.remove(bit_index)
-                    self._key_to_bit_index[scan_code] = bit_index
-            target_hash = self._calculate_hash(scan_codes)
-            if target_hash in self._hotkey_map:
-                logging.warning(f"Overwriting callback for hotkey '{hotkey_str}' (hash={target_hash})")
-            self._hotkey_map[target_hash] = callback
-            logging.info(f"Registered hotkey '{hotkey_str}' (hash={target_hash})")
+            if scan_codes in self._hotkey_map:
+                logging.warning("Overwriting callback for existing hotkey: '%s'", hotkey_str)
+            self._hotkey_map[scan_codes] = callback
+            logging.info("Registered hotkey '%s'", hotkey_str)
 
     def remove_hotkey(self, hotkey_str: str) -> None:
         """
-        Unregister a hotkey combination.
+        Unregisters a hotkey combination.
 
         Args:
-            hotkey_str: Hotkey string to remove (e.g., "ctrl+shift+a").
-
-        Raises:
-            HotkeyError: If the hotkey string is invalid or not registered.
+            hotkey_str: The hotkey string to remove (e.g., "ctrl+shift+a").
         """
         key_names = [key.strip().lower() for key in hotkey_str.split('+') if key.strip()]
         if not key_names:
             raise HotkeyError("Hotkey string cannot be empty")
-        scan_codes = set()
-        with self._lock:
-            for name in key_names:
-                scan_codes.add(self._get_scan_code(name))
-            target_hash = self._calculate_hash(scan_codes)
-            if target_hash not in self._hotkey_map:
-                raise HotkeyError(f"Hotkey '{hotkey_str}' (hash={target_hash}) not found")
-            del self._hotkey_map[target_hash]
-            logging.info(f"Removed hotkey '{hotkey_str}' (hash={target_hash})")
 
-    def signal_stop(self) -> None:
-        """
-        Signal the listener to stop processing events and prepare for shutdown.
-        Safe to call from callbacks.
-        """
+        try:
+            scan_codes = frozenset(self._get_scan_code(name) for name in key_names)
+        except HotkeyError as exc:
+            raise HotkeyError(
+                f"Cannot remove hotkey '{hotkey_str}' due to invalid key"
+            ) from exc
+
         with self._lock:
-            if not self._stop_event.is_set():
-                logging.debug("Stop signal received")
-                self._stop_event.set()
+            if scan_codes not in self._hotkey_map:
+                raise HotkeyError(f"Hotkey '{hotkey_str}' not found for removal")
+
+            del self._hotkey_map[scan_codes]
+            # Also remove from debounce tracking to clean up memory
+            self._last_callback_times.pop(scan_codes, None)
+            logging.info("Removed hotkey '%s'", hotkey_str)
 
     def stop(self) -> None:
         """
-        Stop the listener and clean up resources.
+        Stops the listener and cleans up resources.
+        This method is safe to call multiple times.
         """
-        self.signal_stop()
+        if not self._stop_event.is_set():
+            logging.debug("Stop signal received")
+            self._stop_event.set()
+
+            # Send a dummy keyboard event to unblock `read_event` if it is waiting.
+            # This allows the thread to exit immediately.
+            # pylint: disable=broad-exception-caught
+            try:
+                # 'esc' is a common, safe key to simulate
+                keyboard.press_and_release('esc')
+            except Exception:
+                # Ignore if sending the event fails (e.g., no permissions)
+                pass
+
         if self._listener_thread.is_alive():
-            logging.debug("Waiting for listener thread to stop")
+            logging.debug("Waiting for listener thread to join...")
             self._listener_thread.join(timeout=1.0)
             if self._listener_thread.is_alive():
-                logging.warning("Listener thread did not stop within timeout")
-        self._callback_executor.shutdown(wait=False, cancel_futures=True)
-        logging.debug("Listener stopped")
+                logging.warning("Listener thread did not stop within the timeout period")
 
-    def __del__(self):
-        """Attempt cleanup when the object is deleted."""
-        self.stop()
+        # Shutdown is called here and at the end of the loop, which is safe.
+        self._callback_executor.shutdown(wait=True, cancel_futures=True)
+        logging.info("Listener has stopped completely")
