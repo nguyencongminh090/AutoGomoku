@@ -5,11 +5,13 @@ from typing  import List
 import tomllib
 
 import keyboard
+import mss
+import mss.base
 
 from pygomo  import Engine
 from pygomo  import Move
 from pygomo  import PlayResult
-from utils   import detect_board, detect_opening, detect_move, display
+from utils   import detect_board, detect_opening, detect_move
 from utils   import MoveStack
 from utils   import ScreenCapture
 from utils   import check_state, kill_process
@@ -18,6 +20,7 @@ from utils   import DataBinding
 from utils   import LogText
 from utils   import Board
 from utils   import convert_time
+from utils   import ScreenServices
 
 
 with open('tool_config.toml', 'rb') as f:
@@ -44,9 +47,10 @@ class Model:
         self.__board         : Board  = None
         self.__board_position: List[int, int, int, int] = None, None, None, None
 
-        self.__cur_time  = 0.0
-        self.__game_lock = threading.Lock()
-        self.__listener  = Listener(max_callback_workers=1, debounce_ms=50)
+        self.__screen_service = ScreenServices()
+        self.__cur_time       = 0.0
+        self.__game_lock      = threading.Lock()
+        self.__listener       = Listener(max_callback_workers=1, debounce_ms=50)
 
         self.__listener.add_hotkey('alt+s'       , self.stop_game)
         self.__listener.add_hotkey('esc'         , self.turn_off)
@@ -157,7 +161,7 @@ class Model:
                                     15, 15)
             self.text_box.set('Found board')
             if config['debug_board']:
-                display(self.__board_position, 'Board Detect | Display in 5s')
+                self.__screen_service.display(self.__board_position, 'Board Detect | Display in 5s')
             return
         self.text_box.set('No board found')
 
@@ -328,7 +332,7 @@ class Model:
                 self.__engine_exec.protocol.configure({'time_left': self.__cur_time})
 
                 # Step 2: Get move || Manage by turn
-                if (move := detect_move(*self.__board_position, self.__distance)) is not None and \
+                if (move := detect_move(self.__screen_service, *self.__board_position, self.__distance)) is not None and \
                     move not in move_stack:
                     # Step 3: Send to engine                        
                     move     = Move(move)
@@ -368,18 +372,19 @@ class Model:
                 'rule'         : 1
             })            
             time_start = time.perf_counter()
+
             # STEP 1: Receive opening
-            opening    = detect_opening(*self.__board_position, self.__distance)
+            opening = detect_opening(self.__screen_service, *self.__board_position, self.__distance)
             for move in opening: 
                 move_stack.put(Move(move))
 
             # STEP 2: Send to Engine
-            moves_str  = "\n".join([f"{move[0]},{move[1]},{1 if len(opening) % 2 == idx % 2 else 2}" 
+            moves_str = "\n".join([f"{move[0]},{move[1]},{1 if len(opening) % 2 == idx % 2 else 2}" 
                                     for idx, move in enumerate(opening)])
             self.__engine_exec.protocol.send_command(f'board\n{moves_str}\ndone')
 
             # Step 3: Represent
-            output     = recursive_get_info(self.time_match.get())            
+            output = recursive_get_info(self.time_match.get())            
             if output is not None:
                 move_stack.put(output)
                 click(*self.__board.move_to_coord(*output.to_num()))

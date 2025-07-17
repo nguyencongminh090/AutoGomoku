@@ -1,10 +1,13 @@
-import cv2
 import os
+
+import cv2
 import numpy as np
 from typing    import Tuple, Optional
 from PIL       import Image
+from mss.base  import MSSBase
+
 from .contours import group_overlapping_contours
-from .helper   import screenshot_region
+from .services import ScreenServices
 from .helper   import ArrangedArr, CustomArr
 
 
@@ -15,7 +18,6 @@ with open('color.cfg', 'r') as f:
     colors = []   # 0: Black; 1: White; 2: Spot; 3: Spot 2
     for i in range(3):
         colors.append(tuple(map(int, lines[i].split())))
-
 
 
 def detect_board(
@@ -87,9 +89,9 @@ def detect_board(
     return cur_info
 
 
-def detect_opening(left: int, top: int, width: int, height: int, distance: int) -> CustomArr:    
+def detect_opening(screen_service: ScreenServices, left: int, top: int, width: int, height: int, distance: int) -> CustomArr:    
     # Step 1: Screenshot board
-    image = screenshot_region(left, top, height, width)
+    image = screen_service.screenshot_region(left, top, height, width)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     image = Image.fromarray(image)
     
@@ -111,8 +113,8 @@ def detect_opening(left: int, top: int, width: int, height: int, distance: int) 
     return list_coord.get()
             
 
-def detect_move(left: int, top: int, width: int, height: int, distance: int) -> Tuple[int, int] | None:
-    image = screenshot_region(left, top, height, width)
+def detect_move(screen_service: ScreenServices, left: int, top: int, width: int, height: int, distance: int) -> Tuple[int, int] | None:
+    image = screen_service.screenshot_region(left, top, height, width)
     
     image = Image.fromarray(image)
 

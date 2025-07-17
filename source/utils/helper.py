@@ -1,4 +1,5 @@
 import cv2
+import mss.base
 import numpy as np
 import mss
 from .                     import win_check_cpp
@@ -47,7 +48,11 @@ class ArrangedArr:
             return self.__data
 
 
-def img_crop(image, x1, y1, h, w):
+def img_crop(image,
+             x1: int,
+             y1: int,
+             h: int,
+             w: int):
     """
     Crop an image to the specified coordinates.
 
@@ -62,41 +67,6 @@ def img_crop(image, x1, y1, h, w):
         Cropped image.
     """
     return image[y1:y1+h, x1:x1+w]
-
-def screenshot():
-    """
-    Capture a screenshot of the entire primary monitor.
-
-    Returns:
-        numpy.ndarray: The captured screenshot as an RGB image.
-    """
-    sct   = mss.mss()
-    image = cv2.cvtColor(np.array(sct.grab(sct.monitors[0])), cv2.COLOR_BGR2RGB)
-    return image
-
-
-def screenshot_region(x1, y1, h, w):
-    """
-    Capture a screenshot of a specific region of the primary monitor.
-
-    Args:
-        x1 (int): The x-coordinate of the top-left corner of the region.
-        y1 (int): The y-coordinate of the top-left corner of the region.
-        h  (int): The height of the region.
-        w  (int): The width of the region.
-
-    Returns:
-        numpy.ndarray: The captured screenshot of the specified region as an RGB image.
-    """
-    image = screenshot()
-    image = image[y1:y1 + h, x1:x1 + w]
-    return image
-
-
-def display(region: List[int], title='AutoGomoku'):
-    cv2.imshow(title, cv2.cvtColor(screenshot_region(*region), cv2.COLOR_BGR2RGB))
-    cv2.waitKey(5000)
-    cv2.destroyAllWindows()
 
 
 def convert_time(milliseconds: float) -> str:

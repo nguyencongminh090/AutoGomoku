@@ -41,12 +41,15 @@ class Listener:
     """
     Listens for keyboard hotkey combinations and executes callbacks in a thread-safe manner.
 
-    Features:
-        - Background thread for non-blocking key event monitoring.
-        - Thread-safe hotkey registration and removal.
-        - Non-blocking callback execution via a thread pool.
-        - Graceful shutdown and resource cleanup.
-        - Context manager support for RAII-style usage.
+    Refactoring Notes (from original version):
+        - The internal representation of a hotkey has changed from a hex hash to a
+          `frozenset` of scan codes. This removes the 64 unique key limit.
+        - The debounce mechanism is now per-hotkey instead of global. Activating one
+          hotkey no longer prevents another, different hotkey from firing immediately.
+        - The concept of `bit_index` has been removed, fixing the resource leak issue
+          where removing hotkeys did not free up key slots.
+        - The unreliable `__del__` method has been removed. Cleanup must be done
+          explicitly by calling `stop()` or using the class as a context manager.
     """
 
     def __init__(self, max_callback_workers: int = 1, debounce_ms: int = 500):
