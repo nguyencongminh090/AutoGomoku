@@ -5,8 +5,6 @@ from typing  import List
 import tomllib
 
 import keyboard
-import mss
-import mss.base
 
 from pygomo  import Engine
 from pygomo  import Move
@@ -169,14 +167,17 @@ class Model:
     def turn_off(self):
         """Turn off the game automation system.
         
-        Stops any running game and terminates the engine. This is a cleanup
-        method typically called when shutting down the application.
+        Stops any running game, terminates the engine, and stops the hotkey listener. 
+        This is a cleanup method typically called when shutting down the application.
         """
-
         if self.__state:
             self.stop_game()
         if self.terminate_engine():
             self.text_box.set('Turned off')
+        
+        self.__listener.stop()
+        self.text_box.set('Listener stopped')
+
 
     def turn_on(self):
         """Turn on the game automation system.
@@ -243,9 +244,7 @@ class Model:
                                   f'NPS {message["nps"]} | '
                                   f'PV {" ".join(map(str, message["pv"][:5]))}...')
             except Exception as e:
-                # It's good practice to log or handle potential errors
-                # from the thread, otherwise they might fail silently.
-                print(f"Error fetching search info: {e}")
+                self.text_box.set(f'[Error] Failed to get search info: {e}')
 
         # Start the blocking operation in a new daemon thread
         threading.Thread(target=_fetch_and_display, daemon=True).start()
@@ -256,147 +255,125 @@ class Model:
         Sends a stop command to the engine to halt its current analysis.
         Used for manual search interruption.
         """
+        if self.is_engine_available():
+            self.__engine_exec.protocol.stop()
 
-        self.__engine_exec.protocol.stop()
-
-    def start_game(self, recursive=True):
-        """Start and manage a complete game session.
-        
-        Main game loop that handles move detection, engine communication,
-        and automated gameplay. Manages timing, move validation, and game state.
-        
-        Args:
-            recursive (bool, optional): Whether to continue playing after the
-                                      first move. Defaults to True.
-        
-        The method contains nested helper functions:
-        - click(): Handles automated or manual move execution
-        - calc_time_left(): Calculates remaining time for moves
-        - recursive_get_info(): Retrieves engine move recommendations
-        - recursive_play(): Main game loop for continuous play
-        
-        Side Effects:
-            - Updates game state and UI
-            - Sends commands to engine
-            - Executes mouse clicks on detected moves
-            - Manages game timing and move history
-        
-        Raises:
-            AssertionError: If engine is not ready within timeout period.
-        """
-
-        def click(*coord):
-            # Check auto mode
+    def __click_move(self, *coord):
+        """Handles automated or manual move execution."""
+        try:
             if self.mode.get():
                 self.__board.click(*coord)
             else:
                 self.text_box.set('Wait key: ALT + M to continue!')
                 keyboard.wait('alt+m')
                 self.__board.click(*coord)
+        except Exception as e:
+            self.text_box.set(f'[Error] Failed to click move: {e}')
 
-        def calc_time_left(begin_at, during):
-            return (begin_at - during + self.time_plus.get()) * 1000
-        
-        def recursive_get_info(time_left) -> Move | None:
-            """
-            Recursive get search info.
+    def __calc_time_left(self, begin_at, during):
+        """Calculates remaining time for a move."""
+        return (begin_at - during + self.time_plus.get()) * 1000
 
-            Args:
-                time_left (int): Initialize time_left
+    def __get_engine_move(self, time_left) -> Move | None:
+        """
+        Retrieves the best move from the engine within the given time.
+        Handles errors and ensures the game is still active.
+        """
+        while self.__state:
+            try:
+                best_move = self.__engine_exec._receive('coord', timeout=time_left)
+                if best_move:
+                    best_move = Move(best_move)
+                    self.__display_search_info(reset=True)
+                    self.text_box.set('[BestMove]', best_move.to_alphabet())
+                    return best_move
+            except Exception as e:
+                self.text_box.set(f'[Error] Failed to get engine move: {e}')
+        return None
 
-            Return:
-                Move: Move object.
-                None: None for no information.
-            """
-            while self.__state:
-                try:                    
-                    # Represent to View
-                    best_move = self.__engine_exec._receive('coord', timeout=time_left)
-                    if best_move:
-                        best_move = Move(best_move)
-                        self.__display_search_info(reset=True)   
-
-                        self.text_box.set('[BestMove]', best_move.to_alphabet())
-                        return best_move
-                except:
-                    continue
-            return None
-            
-        def recursive_play(move_stack: MoveStack):
-            """
-            Recursive playing until terminated.
-
-            Args:
-                move_stack (int): Initialize move stack to mangage moves.
-            """
-            while self.__state:                
-                # Step 1: Set time_left
+    def __game_loop(self, move_stack: MoveStack):
+        """
+        The main recursive loop for continuous gameplay.
+        """
+        while self.__state:
+            try:
+                # Step 1: Set time_left for the engine
                 time_start = time.perf_counter()
                 self.__engine_exec.protocol.configure({'time_left': self.__cur_time})
 
-                # Step 2: Get move || Manage by turn
-                if (move := detect_move(self.__screen_service, *self.__board_position, self.__distance)) is not None and \
-                    move not in move_stack:
-                    # Step 3: Send to engine                        
-                    move     = Move(move)
+                # Step 2: Detect the opponent's move
+                move = detect_move(self.__screen_service, *self.__board_position, self.__distance)
+                if move and move not in move_stack:
+                    move = Move(move)
                     move_stack.put(move)
                     
                     self.text_box.clear()
                     self.text_box.set(f'--> Time Left: {convert_time(self.__cur_time)}')
 
+                    # Step 3: Send the move to the engine
                     self.__engine_exec.protocol.send_command('turn', move.to_strnum())
 
-                    # Step 4: Display & click
-                    output   = recursive_get_info(self.__cur_time / 1000)
-                    
-                    if output is not None:
-                        move_stack.put(output)
-                        click(*self.__board.move_to_coord(*output.to_num()))
+                    # Step 4: Get the engine's response and play it
+                    engine_move = self.__get_engine_move(self.__cur_time / 1000)
+                    if engine_move:
+                        move_stack.put(engine_move)
+                        self.__click_move(*self.__board.move_to_coord(*engine_move.to_num()))
 
-                    # Step 5: Update time_left
+                    # Step 5: Update time left
+                    time_end = time.perf_counter()
+                    self.__cur_time = self.__calc_time_left(self.__cur_time / 1000, time_end - time_start)
 
-                    time_end        = time.perf_counter()
-                    self.__cur_time = calc_time_left(self.__cur_time / 1000, time_end - time_start)
-
-                    # Step 6: Check win
+                    # Step 6: Check for a win condition
                     if move_stack.is_win():
+                        self.text_box.set('[Game Over]')
                         self.stop_game()
-        
 
-        try:            
+            except Exception as e:
+                self.text_box.set(f'[Error] Game loop failed: {e}')
+                self.stop_game() # Stop the game on critical error
+
+    def start_game(self, recursive=True):
+        """
+        Initializes and starts a complete game session.
+        """
+        try:
             self.__state = True
             move_stack   = MoveStack()
-            # Logic
-            # -----
+
+            # Initial engine configuration
             assert self.__engine_exec.protocol.is_ready(timeout=self.time_match.get()), 'Engine is not ready'
             self.__engine_exec.protocol.configure({
                 'timeout_match': self.time_match.get() * 1000,
                 'time_left'    : self.time_match.get() * 1000,
                 'rule'         : 1,
                 'pondering'    : 1
-            })            
+            })
             time_start = time.perf_counter()
 
-            # STEP 1: Receive opening
+            # Detect and process opening moves
             opening = detect_opening(self.__screen_service, *self.__board_position, self.__distance)
-            for move in opening: 
+            for move in opening:
                 move_stack.put(Move(move))
+            
+            if opening:
+                moves_str = "\n".join([f"{move[0]},{move[1]},{1 if len(opening) % 2 == idx % 2 else 2}"
+                                        for idx, move in enumerate(opening)])
+                self.__engine_exec.protocol.send_command(f'board\n{moves_str}\ndone')
 
-            # STEP 2: Send to Engine
-            moves_str = "\n".join([f"{move[0]},{move[1]},{1 if len(opening) % 2 == idx % 2 else 2}" 
-                                    for idx, move in enumerate(opening)])
-            self.__engine_exec.protocol.send_command(f'board\n{moves_str}\ndone')
+            # Get the first move from the engine
+            engine_move = self.__get_engine_move(self.time_match.get())
+            if engine_move:
+                move_stack.put(engine_move)
+                self.__click_move(*self.__board.move_to_coord(*engine_move.to_num()))
 
-            # Step 3: Represent
-            output = recursive_get_info(self.time_match.get())            
-            if output is not None:
-                move_stack.put(output)
-                click(*self.__board.move_to_coord(*output.to_num()))
-
-            # Step 4: Local update time
-            time_end        = time.perf_counter()
-            self.__cur_time = calc_time_left(self.time_match.get(), time_end - time_start)
+            # Update time and start the main game loop
+            time_end = time.perf_counter()
+            self.__cur_time = self.__calc_time_left(self.time_match.get(), time_end - time_start)
+            
             if recursive:
-                recursive_play(move_stack)
+                self.__game_loop(move_stack)
+
+        except Exception as e:
+            self.text_box.set(f'[Error] Could not start game: {e}')
         finally:
             self.__state = False
