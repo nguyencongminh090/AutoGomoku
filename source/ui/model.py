@@ -52,15 +52,16 @@ class Model:
         self.__game_lock      = threading.Lock()
         self.__listener       = Listener(max_callback_workers=1, debounce_ms=50)
 
-        self.__listener.add_hotkey('alt+s'       , self.stop_game)
-        self.__listener.add_hotkey('esc'         , self.turn_off)
-        self.__listener.add_hotkey('ctrl+shift+x', self.start_game_thread)
-        self.__listener.add_hotkey('alt+r'       , self.text_box.clear)
-        self.__listener.add_hotkey('alt+d'       , self.__display_search_info)
-        self.__listener.add_hotkey('alt+q'       , self.__stop_engine_search)
-        self.__listener.add_hotkey('alt+='       , self.inc_time)
-        self.__listener.add_hotkey('alt+-'       , self.dec_time)
-        self.__listener.add_hotkey('alt+enter'   , self.sync_time_var)
+        self.__listener.add_hotkey('alt+s'          , self.stop_game)
+        self.__listener.add_hotkey('esc'            , self.turn_off)
+        self.__listener.add_hotkey('ctrl+shift+x'   , self.start_game_thread)
+        self.__listener.add_hotkey('alt+r'          , self.text_box.clear)
+        self.__listener.add_hotkey('alt+d'          , self.__display_search_info)
+        self.__listener.add_hotkey('alt+q'          , self.__stop_engine_search)
+        self.__listener.add_hotkey('alt+='          , self.inc_time)
+        self.__listener.add_hotkey('alt+-'          , self.dec_time)
+        self.__listener.add_hotkey('alt+shift+enter', self.sync_time_var)
+        self.__listener.add_hotkey('alt+enter'      , self.set_cur_time)
 
 
     def inc_time(self):
@@ -230,22 +231,24 @@ class Model:
                 return
     
     def __display_search_info(self, reset=False):
-        """Display current engine search information.
+        """Display current engine search information in a non-blocking manner."""
         
-        Retrieves and formats engine analysis data including search depth,
-        win rate, node count, and principal variation.
-        
-        Args:
-            reset (bool, optional): Whether to reset the message buffer. 
-                                    Defaults to False.
-        """
-        
-        message = PlayResult(None, self.__engine_exec._receive('message', reset=reset)).info
-        self.text_box.set(f'DEPTH {message["depth"]} | '
-                          f'Winrate {message["ev"].winrate() * 100:.2f}% | '
-                          f'NODE {message["node"]} | '
-                          f'NPS {message["nps"]} | '
-                          f'PV {" ".join(map(str, message["pv"][:5]))}...')
+        def _fetch_and_display():
+            """Inner function to run in a separate thread."""
+            try:
+                message = PlayResult(None, self.__engine_exec._receive('message', reset=reset)).info
+                self.text_box.set(f'DEPTH {message["depth"]} | '
+                                  f'Winrate {message["ev"].winrate() * 100:.2f}% | '
+                                  f'NODE {message["node"]} | '
+                                  f'NPS {message["nps"]} | '
+                                  f'PV {" ".join(map(str, message["pv"][:5]))}...')
+            except Exception as e:
+                # It's good practice to log or handle potential errors
+                # from the thread, otherwise they might fail silently.
+                print(f"Error fetching search info: {e}")
+
+        # Start the blocking operation in a new daemon thread
+        threading.Thread(target=_fetch_and_display, daemon=True).start()
 
     def __stop_engine_search(self):
         """Stop the current engine search operation.
@@ -369,7 +372,8 @@ class Model:
             self.__engine_exec.protocol.configure({
                 'timeout_match': self.time_match.get() * 1000,
                 'time_left'    : self.time_match.get() * 1000,
-                'rule'         : 1
+                'rule'         : 1,
+                'pondering'    : 1
             })            
             time_start = time.perf_counter()
 
